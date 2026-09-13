@@ -1,0 +1,43 @@
+name: Connect gacha sound
+on:
+  push:
+    paths:
+      - sound.js
+      - .github/workflows/connect-sound.yml
+      - sound-trigger.txt
+permissions:
+  contents: write
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch gacha
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          if 'src="sound.js"' not in s:
+              s=s.replace('<script>const chars=', '<script src="sound.js"></script><script>const chars=', 1)
+          if 'AISound.scout()' not in s:
+              s=s.replace("function start(){if(busy)return;if(coins<100){", "function start(){if(busy)return;if(coins<100){", 1)
+              s=s.replace("reset();busy=true;coins-=100;selected=pick();", "reset();busy=true;AISound.scout();coins-=100;selected=pick();", 1)
+          if 'AISound.charge()' not in s:
+              s=s.replace("$('capsule').classList.add('shake');$('rarity').textContent", "$('capsule').classList.add('shake');AISound.charge();$('rarity').textContent", 1)
+          if 'AISound.rare(c.rarity)' not in s:
+              s=s.replace("$('rarity').className='rarity show';", "$('rarity').className='rarity show';AISound.rare(c.rarity);", 1)
+          if 'AISound.open(selected.rarity)' not in s:
+              s=s.replace("stop();$('reveal').className='reveal hidden';", "stop();AISound.open(selected.rarity);$('reveal').className='reveal hidden';", 1)
+          if 'AISound.toggle()' not in s:
+              s=s.replace("<div id=\"toast\" class=\"toast\"></div>", "<button id=\"soundBtn\" type=\"button\" style=\"position:fixed;right:12px;bottom:12px;z-index:120;border:1px solid #ffffff55;border-radius:99px;background:#090d22dd;color:#fff;padding:9px 12px;font-weight:900\">🔊 SOUND</button><div id=\"toast\" class=\"toast\"></div>")
+              s=s.replace("load();update();</script>", "$('soundBtn').addEventListener('click',()=>{AISound.toggle();$('soundBtn').textContent=AISound.enabled()?'🔊 SOUND':'🔇 SOUND'});load();update();</script>", 1)
+          p.write_text(s)
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add index.html
+          git diff --cached --quiet || git commit -m "Connect gacha sound effects and BGM"
+          git push
